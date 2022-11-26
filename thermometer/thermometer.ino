@@ -1,6 +1,12 @@
 #include <DHT.h>
 #include <DHT_U.h>
 
+int temperatureOffset = -2;        // Versatz um die ungenauigkeit des sensors auszugleichen
+unsigned int portToBitOffset = 3;  // Das niedrigste Bit liegt auf diesem digitalen Port
+unsigned int bitsToShow = 7;       // Anzahl der Bits, die angezeigt werden können
+long lastTimestamp = 0;
+long startUpTimestamp = 0;
+
 void setup() {
   pinMode(2, INPUT);
   pinMode(3, OUTPUT);
@@ -10,47 +16,32 @@ void setup() {
   pinMode(7, OUTPUT);
   pinMode(8, OUTPUT);
   pinMode(9, OUTPUT);
+  pinMode(12, INPUT);
   Serial.begin(9600);
+  startUpTimestamp = lastTimestamp = millis();
 }
-
-bool needsInitialization = true;
-int temperatureOffset = -2;       // Versatz um 
-unsigned int portToBitOffset = 3; // Das niedrigste Bit liegt auf diesem digitalen Port
-unsigned int bitsToShow = 7;      // Anzahl der Bits, die angezeigt werden können
 
 void loop() {
 
-  if(needsInitialization) {
-    // einmal alle LEDs zum Testen anmachen
-    for (int i = 0; i < bitsToShow; i++) {
-      //digitalWrite(i + portToBitOffset, HIGH);
-    }
-    needsInitialization = false;
+  long currentTimestamp = millis();
+  bool testDisplay = currentTimestamp - startUpTimestamp < 3000;
+  bool buttonPressed = HIGH == digitalRead(12);
+  
+  if(buttonPressed)
+  {
+    lastTimestamp = currentTimestamp;
   }
+
+  bool enableDisplay = currentTimestamp - lastTimestamp < 3000;
 
   DHT dht = DHT(2, DHT11);
 
-  //if(dht.read())
-  {
-    int temperature = (int)dht.readTemperature() + temperatureOffset;
+  int temperature = (int)dht.readTemperature() + temperatureOffset;
 
-    for (int i = 0; i < bitsToShow; i++) {
-      //bool bitIsSet = temperature & (1 << i);
-      bool bitIsSet = bitRead(temperature, i);
-      Serial.print(bitIsSet ? 1 : 0);
-      digitalWrite(i + portToBitOffset, bitIsSet ? HIGH : LOW);
-    }
-    Serial.println();
-    Serial.println(temperature);
-  }
-  //else
-  {
-    //Serial.write("Could not read from sensor\n");
+  for (int i = 0; i < bitsToShow; i++) {
+    bool bitIsSet = bitRead(temperature, i);
+    digitalWrite(i + portToBitOffset, bitIsSet && enableDisplay || testDisplay ? HIGH : LOW);
   }
 
-  delay(3000);
-  //digitalWrite(LED_BUILTIN, HIGH);
-  //delay(1000);
-  //digitalWrite(LED_BUILTIN, LOW);
   //delay(1000);
 }
